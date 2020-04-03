@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,8 +17,8 @@ import (
 var (
 	wg                sync.WaitGroup
 	err               error
-	unUsefulRowLength int = 3 // 不需翻译的前几行数据
-	unUsefulColLength int = 1 // 不需要翻译的前几列数据
+	unUsefulRowLength int      = 3 // 不需翻译的前几行数据
+	skipSheetName     []string = []string{"Sheet", "sheet"}
 )
 
 type PickUp struct {
@@ -59,10 +60,8 @@ func (this *PickUp) ReadExcel(filePath string) {
 	//var flag = false
 	splitNewFileName := strings.Split(filePath, `\`)
 	fileName := splitNewFileName[len(splitNewFileName)-1]
-	// 获取文件当前路径
-	//nowPath, _ := os.Getwd()
-	//writeFilePath := nowPath + `\` + fileName
-	//var writeFile *excelize.File
+	//fileName = strings.Replace(fileName, ".xlsx", ".xls", 1)
+	// 记录坐标
 	var excelMaps map[int]interface{}
 	excelMaps = make(map[int]interface{})
 	file, e := excelize.OpenFile(filePath)
@@ -70,9 +69,21 @@ func (this *PickUp) ReadExcel(filePath string) {
 		fmt.Println("读取excel文件失败:", e)
 		return
 	}
+
 	for _, name := range file.GetSheetMap() {
+		var colSince []int
 		// sheet名全为英文的需要转出
 		if IsChinese(name) {
+			continue
+		}
+		fmt.Println("name:", name)
+		flag := false
+		for _, skip := range skipSheetName {
+			if strings.Contains(name, skip) {
+				flag = true
+			}
+		}
+		if flag {
 			continue
 		}
 		// 获取全部单元格的值
@@ -81,20 +92,34 @@ func (this *PickUp) ReadExcel(filePath string) {
 			fmt.Println("获取单元格的值失败:", e)
 			return
 		}
+		// 第一行记录数据类型
+		if rows == nil || len(rows) <= 2 {
+			continue
+		}
+		i := 0
+		for k, v := range rows[2] {
+			if v != "" && IsLetter(v) {
+				colSince = append(colSince, k)
+				i++
+			}
+		}
+		fmt.Println("colSince:", len(colSince))
 		for key, row := range rows {
 			// excel表格前几行是无用数据 不需要读取
 			if key < unUsefulRowLength {
 				continue
 			}
-			fmt.Println(row)
-			for col, colCell := range row {
-				if col < unUsefulColLength {
+			if len(row) == 0 {
+				continue
+			}
+			rowLength := len(row)
+			for _, v1 := range colSince {
+				if v1 >= rowLength {
 					continue
 				}
-				if IsChinese(colCell) {
-					print(colCell, "\t")
+				if IsChinese(row[v1]) {
 					//索引转化为坐标
-					cellName, err := excelize.CoordinatesToCellName(col+1, key+1)
+					cellName, err := excelize.CoordinatesToCellName(v1+1, key+1)
 					if err != nil {
 						fmt.Println("坐标转换失败:", e)
 						return
@@ -103,49 +128,18 @@ func (this *PickUp) ReadExcel(filePath string) {
 						"filePath":    filePath,
 						"name":        name,
 						"cellName":    cellName,
-						"colCell":     colCell,
+						"colCell":     row[v1],
 						"rowForExcel": rowForExcel,
 					}
 					//this.WriteExcel(filePath, fileName, name, cellName, colCell, rowForExcel, writeFilePath, writeFile)
 					rowForExcel++
 				}
-
 			}
-			println()
+			fmt.Println(row)
 		}
 	}
 	this.WriteExcel(&excelMaps, fileName)
 }
-
-//// 创建一个Excel文档
-//func (this *PickUp) WriteExcel(filePath string, fileName string, sheet string, cellName string, value string, rowForExcel int, writeFilePath string, file *excelize.File) error {
-//	var sheetName = "Sheet1"
-//	// 判断文件是否存在 不存在则新建然后添加信息 存在则追加信息
-//	fmt.Println("flag:", flag)
-//	if flag {
-//		// 普通方法写入
-//		err = file.SetSheetRow(sheetName, "A"+strconv.Itoa(rowForExcel), &[]interface{}{filePath, sheet, cellName, value})
-//		if err != nil {
-//			fmt.Println("打印,err:", err)
-//			return err
-//		}
-//	} else {
-//		fmt.Println("file not exits, so create it")
-//		index := file.NewSheet(sheetName)
-//		file.SetCellValue(sheetName, "A"+strconv.Itoa(rowForExcel), filePath)
-//		file.SetCellValue(sheetName, "B"+strconv.Itoa(rowForExcel), sheet)
-//		file.SetCellValue(sheetName, "C"+strconv.Itoa(rowForExcel), cellName)
-//		file.SetCellValue(sheetName, "D"+strconv.Itoa(rowForExcel), value)
-//		file.SetActiveSheet(index)
-//		flag = true
-//	}
-//	// 根据指定路径保存文件
-//	if err = file.SaveAs(fileName); err != nil {
-//		fmt.Println("创建Excel文件失败!")
-//	}
-//	fmt.Println("rowForExcel:", rowForExcel)
-//	return err
-//}
 
 // 创建一个Excel文档
 func (this *PickUp) WriteExcel(excelMaps *map[int]interface{}, fileName string) error {
@@ -172,6 +166,29 @@ func (this *PickUp) WriteExcel(excelMaps *map[int]interface{}, fileName string) 
 			fmt.Println("写入Excel文件失败!", err)
 		}
 	}
+	// 流式写入 不知道为什么 导出的xlsx有些不能用microsoft打开
+	//file := excelize.NewFile()
+	//streamWriter, err := file.NewStreamWriter(sheetName)
+	//for _, excelMapInterface := range *excelMaps {
+	//	excelMap := excelMapInterface.(map[string]interface{})
+	//	rowForExcel = excelMap["rowForExcel"].(int)
+	//	sheet = excelMap["name"].(string)
+	//	cellName = excelMap["cellName"].(string)
+	//	value = excelMap["colCell"].(string)
+	//	filePath = excelMap["filePath"].(string)
+	//	err = streamWriter.SetRow("A"+strconv.Itoa(rowForExcel), []interface{}{filePath, sheet, cellName, value})
+	//	fmt.Println("开始转化:", value)
+	//}
+	//if err := streamWriter.Flush(); err != nil {
+	//	println(err.Error())
+	//}
+	//// 判断文件所需转化是否为空
+	//if len(*excelMaps) != 0 {
+	//	// 根据指定路径保存文件
+	//	if err = file.SaveAs(fileName); err != nil {
+	//		fmt.Println("写入Excel文件失败!", err)
+	//	}
+	//}
 	fmt.Println("rowForExcel:", rowForExcel)
 	return err
 }
@@ -182,6 +199,15 @@ func IsChinese(r string) bool {
 		if unicode.Is(unicode.Han, v) {
 			return true
 		}
+	}
+	return false
+}
+
+// 判断是否为字母
+func IsLetter(r string) bool {
+	matched, _ := regexp.MatchString("([a-zA-Z])+([0-9])*", r)
+	if matched {
+		return true
 	}
 	return false
 }

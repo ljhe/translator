@@ -2,7 +2,6 @@ package tools
 
 import (
 	"fmt"
-	"github.com/360EntSecGroup-Skylar/excelize"
 	"os"
 	"testing"
 )
@@ -26,15 +25,10 @@ func TestPathExists(t *testing.T) {
 	println(dir)
 }
 
-func TestPickUp_WriteExcel(t *testing.T) {
-	file, err := excelize.OpenFile(`F:\code\src\translator\test\guild.xlsx`)
-	if err != nil {
-		fmt.Println("open file error:", err)
-	}
-	file.SetCellValue("guildDaily", "D4", "lala1")
-	file.SetCellValue("guildDaily", "D5", "lala2")
-	file.SetCellValue("buildings", "F4", "lala3")
-	if err := file.Save(); err != nil {
-		println(err.Error())
-	}
+func TestIsLetter(t *testing.T) {
+	fmt.Println(IsLetter("asdasd"))
+	fmt.Println(IsLetter("asdasd1"))
+	fmt.Println(IsLetter("你说"))
+	fmt.Println(IsLetter("1"))
+	fmt.Println(IsLetter(""))
 }
