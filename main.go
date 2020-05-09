@@ -10,9 +10,10 @@ import (
 
 func main() {
 	input := bufio.NewScanner(os.Stdin)
-	fmt.Println("请选择功能：")
+	fmt.Println("请选择功能（路径不能包含中文）：")
 	fmt.Println("1.提取目标路径中Excel中的汉字")
 	fmt.Println("2.将翻译过后的内容替换到原Excel文件，请确保原Excel路径及文件存在")
+	fmt.Println("0.退出")
 	var status string
 	var path string
 	for input.Scan() {
@@ -23,6 +24,9 @@ func main() {
 			break
 		}
 		fmt.Println("error param, please try again")
+		if line == "0" {
+			return
+		}
 	}
 
 	for input.Scan() {
@@ -47,6 +51,8 @@ func choiceProgram(path, status string) {
 		} else {
 			fmt.Println("error path, please try again")
 		}
+	case "0":
+		return
 	}
 }
 

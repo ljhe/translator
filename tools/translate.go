@@ -52,12 +52,17 @@ func (this *Translate) ReadExcel(filePath string) {
 	for _, name := range file.GetSheetMap() {
 		// 获取全部单元格的值
 		rows, e := file.GetRows(name)
+		fmt.Println("打印当前rows的长度:", len(rows))
 		if e != nil {
 			fmt.Println("获取单元格的值失败:", e)
 			return
 		}
 		for _, row := range rows {
 			for col, colCell := range row {
+				if colCell == "" {
+					continue
+				}
+				fmt.Printf("col:%v colCell:%v\n", col, colCell)
 				switch col {
 				case 0:
 					writeFilePath = colCell
@@ -75,15 +80,18 @@ func (this *Translate) ReadExcel(filePath string) {
 }
 
 func (this *Translate) TransLate(excelMaps *map[int]interface{}, writeFilePath string) error {
+	fmt.Println("这里打印excel的目录:", writeFilePath)
 	var file *excelize.File
 	var length int
 	length = len(*excelMaps)
 	file, err = excelize.OpenFile(writeFilePath)
 	if err != nil {
+		fmt.Println("打印翻译错误的err:", err)
 		return err
 	}
 	for _, excelInterface := range *excelMaps {
 		excelMap := excelInterface.([]string)
+		// 0为文件路径 1为工作表名称 2为坐标 3为原来内容 4为替换后的内容
 		if excelMap[4] != "" {
 			file.SetCellValue(excelMap[1], excelMap[2], excelMap[4])
 			if err != nil {

@@ -17,8 +17,9 @@ import (
 var (
 	wg                sync.WaitGroup
 	err               error
-	unUsefulRowLength int      = 3 // 不需翻译的前几行数据
-	skipSheetName     []string = []string{"Sheet", "sheet"}
+	unUsefulRowLength = 3                          // 这里设置不需翻译的前几行数据
+	skipSheetName     = []string{"Sheet", "sheet"} // 这里设置需要跳过的工作表名称
+	fieldLine         = 2                          // 这里设置字段所在的行数 计数从0开始
 )
 
 type PickUp struct {
@@ -45,7 +46,7 @@ func (this *PickUp) Run() {
 	wg.Add(len(this.ExcelPath))
 	for _, filePath := range this.ExcelPath {
 		// 该程序是按支持并发设计的 但是问了Excelize插件的制作者 该插件是不支持并发的
-		// 所以这里保留了并发程序 但是并达不到并发插入效果
+		// 所以这里保留了并发程序 但是并达不到并发插入效果 可以并发的将数据存入内存
 		go this.ReadExcel(filePath)
 
 	}
@@ -57,10 +58,8 @@ func (this *PickUp) Run() {
 func (this *PickUp) ReadExcel(filePath string) {
 	defer wg.Done()
 	var rowForExcel = 1
-	//var flag = false
 	splitNewFileName := strings.Split(filePath, `\`)
 	fileName := splitNewFileName[len(splitNewFileName)-1]
-	//fileName = strings.Replace(fileName, ".xlsx", ".xls", 1)
 	// 记录坐标
 	var excelMaps map[int]interface{}
 	excelMaps = make(map[int]interface{})
@@ -93,11 +92,11 @@ func (this *PickUp) ReadExcel(filePath string) {
 			return
 		}
 		// 第一行记录数据类型
-		if rows == nil || len(rows) <= 2 {
+		if rows == nil || len(rows) <= fieldLine {
 			continue
 		}
 		i := 0
-		for k, v := range rows[2] {
+		for k, v := range rows[fieldLine] {
 			if v != "" && IsLetter(v) {
 				colSince = append(colSince, k)
 				i++
@@ -166,29 +165,6 @@ func (this *PickUp) WriteExcel(excelMaps *map[int]interface{}, fileName string) 
 			fmt.Println("写入Excel文件失败!", err)
 		}
 	}
-	// 流式写入 不知道为什么 导出的xlsx有些不能用microsoft打开
-	//file := excelize.NewFile()
-	//streamWriter, err := file.NewStreamWriter(sheetName)
-	//for _, excelMapInterface := range *excelMaps {
-	//	excelMap := excelMapInterface.(map[string]interface{})
-	//	rowForExcel = excelMap["rowForExcel"].(int)
-	//	sheet = excelMap["name"].(string)
-	//	cellName = excelMap["cellName"].(string)
-	//	value = excelMap["colCell"].(string)
-	//	filePath = excelMap["filePath"].(string)
-	//	err = streamWriter.SetRow("A"+strconv.Itoa(rowForExcel), []interface{}{filePath, sheet, cellName, value})
-	//	fmt.Println("开始转化:", value)
-	//}
-	//if err := streamWriter.Flush(); err != nil {
-	//	println(err.Error())
-	//}
-	//// 判断文件所需转化是否为空
-	//if len(*excelMaps) != 0 {
-	//	// 根据指定路径保存文件
-	//	if err = file.SaveAs(fileName); err != nil {
-	//		fmt.Println("写入Excel文件失败!", err)
-	//	}
-	//}
 	fmt.Println("rowForExcel:", rowForExcel)
 	return err
 }
