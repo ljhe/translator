@@ -42,6 +42,7 @@ func choiceProgram(path, status string) {
 		if base.IsDir(path) {
 			pickUp := tools.PickUp{Path: checkPath(path)}
 			pickUp.Run()
+			fmt.Println("``````````````````任务完成 输入0退出``````````````````")
 		} else {
 			fmt.Println("error path, please try again")
 		}
@@ -49,6 +50,7 @@ func choiceProgram(path, status string) {
 		if base.IsDir(path) {
 			translate := tools.Translate{Path: checkPath(path)}
 			translate.Run()
+			fmt.Println("``````````````````任务完成 输入0退出``````````````````")
 		} else {
 			fmt.Println("error path, please try again")
 		}
